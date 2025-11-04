@@ -1,32 +1,1147 @@
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <link rel="stylesheet" href="styles.css" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>PakePlus App</title>
-        <script type="module" src="/main.js" defer></script>
-    </head>
+<html lang="zh-CN">
 
-    <body>
-        <main class="container">
-            <h1>Welcome to PakePlus</h1>
-            <form class="row" id="greet-form">
-                <input id="inputValue" placeholder="Enter a something..." />
-            </form>
-            <div class="resultBox">
-                <span>result: </span>
-                <span id="result"></span>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>压力仪表上位机</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-color: #0078d4;
+            --secondary-color: #f3f2f1;
+            --accent-color: #005a9e;
+            --text-primary: #323130;
+            --text-secondary: #605e5c;
+            --card-bg: #ffffff;
+            --page-bg: #faf9f8;
+        }
+
+        body {
+            font-family: "Segoe UI", sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--page-bg);
+            color: var(--text-primary);
+        }
+
+        /* 夜间模式变量 */
+        body.dark-mode {
+            --primary-color: #0d8bff;
+            --secondary-color: #2d2d2d;
+            --accent-color: #0066cc;
+            --text-primary: #ffffff;
+            --text-secondary: #cccccc;
+            --card-bg: #1e1e1e;
+            --page-bg: #121212;
+        }
+
+        /* 模式切换按钮 */
+        .theme-toggle {
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 0.5em;
+            padding: 10px 16px;
+            border-radius: 20px;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .theme-toggle .nav-icon {
+            margin-left: 8px;
+            margin-right: 8px;
+            font-size: 24px;
+            transition: transform 0.3s ease;
+        }
+
+        .theme-toggle .toggle-text {
+            font-size: 1.1em !important;
+            display: inline-block;
+            max-width: 0;
+            opacity: 0;
+            overflow: hidden;
+            white-space: nowrap;
+            transition: max-width 0.5s ease, opacity 0.5s ease;
+        }
+
+        .theme-toggle:hover .toggle-text {
+            max-width: 200px;
+            opacity: 1;
+        }
+
+        .theme-toggle:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 12px 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            display: flex;
+            /* 使header中的内容横向排列 */
+            justify-content: space-between;
+            /* 使h2和nav-tabs分布在左右两侧 */
+            align-items: center;
+            /* 使内容垂直居中 */
+        }
+
+        .nav-tabs {
+            display: flex;
+            background-color: var(--secondary-color);
+            border-bottom: 0;
+            border-radius: 0;
+            transition: all var(--transition-normal);
+        }
+
+        .nav-tab {
+            display: flex;
+            /* 水平排列图标和文本 */
+            align-items: center;
+            /* 使图标和文字垂直居中 */
+            padding: 12px 20px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            /* 防止文字溢出 */
+        }
+
+        .nav-icon {
+            margin-left: 8px;
+            /* 图标与文字的间距 */
+            margin-right: 8px;
+            /* 图标与文字的间距 */
+            font-size: 24px;
+            /* 图标大小 */
+            transition: transform 0.3s ease;
+        }
+
+        .nav-text {
+            font-size: 0.75em !important;
+            display: inline-block;
+            /* 默认显示，文字为行内块级元素 */
+            max-width: 0;
+            /* 初始状态下文字宽度为0 */
+            opacity: 0;
+            /* 初始透明度为0 */
+            overflow: hidden;
+            /* 隐藏超出部分 */
+            white-space: nowrap;
+            /* 不换行 */
+            transition: max-width 0.5s ease, opacity 0.5s ease;
+            /* 动画效果 */
+        }
+
+        .nav-tab:hover .nav-text {
+            max-width: 200px;
+            /* 鼠标悬停时展开文字 */
+            opacity: 1;
+            /* 文字渐显 */
+        }
+
+        .nav-tab.active {
+            color: var(--primary-color);
+            font-weight: 600;
+            border-bottom: 2px solid var(--primary-color);
+        }
+
+        .nav-tab.active .nav-text {
+            display: inline-block;
+            /* 保证选中时文字始终显示 */
+        }
+
+        .nav-tab:hover .nav-text {
+            opacity: 1;
+        }
+
+
+        .content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 2px;
+            box-shadow: 0 1.6px 3.6px 0 rgba(0, 0, 0, .132), 0 0.3px 0.9px 0 rgba(0, 0, 0, .108);
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .data-panel {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .data-panel>div {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .current-reading {
+            font-size: 36px;
+            font-weight: 600;
+            margin: 10px 0;
+            display: inline-block;
+            /* 设置为行内块级元素 */
+        }
+
+        .unit-label {
+            font-size: 24px;
+            color: var(--text-secondary);
+            display: inline-block;
+            /* 设置为行内块级元素 */
+            margin-left: 8px;
+            /* 调整单位与数值之间的间距 */
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        #temperature-value {
+            display: inline-block;
+            padding-left: 20.5px;
+        }
+
+        .control-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .chart-container {
+            height: 300px;
+            margin-top: 20px;
+        }
+
+        .button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 2px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .button:hover {
+            background-color: var(--accent-color);
+        }
+
+        .filter-comparison {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .filter-chart {
+            height: 250px;
+        }
+
+        .calibration-controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 0;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+
+        .status-ok {
+            background-color: #107c10;
+        }
+
+        .status-error {
+            background-color: #d13438;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .connection-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #d13438;
+        }
+
+        .connection-dot.connected {
+            background-color: #107c10;
+        }
+
+        .log-container {
+            height: 120px;
+            overflow-y: auto;
+            border: 1px solid #e1dfdd;
+            padding: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            background-color: #f8f9fa;
+            margin-top: 10px;
+        }
+
+        .filter-comparison {
+            display: flex;
+            flex-direction: row;
+            /* 改为行排列 */
+            flex-wrap: wrap;
+            /* 允许换行 */
+            gap: 20px;
+        }
+
+        .filter-comparison>div {
+            flex: 0 0 calc(50% - 10px);
+            /* 每个占50%宽度减去一半的gap */
+            min-width: 0;
+            /* 移除最小宽度限制 */
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>压力仪表上位机</h2>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <button class="theme-toggle" id="theme-toggle">
+                    <span class="nav-icon"><i class="fas fa-moon"></i></span>
+                    <span class="toggle-text">夜间模式</span>
+                </button>
+                <div class="nav-tabs">
+                    <div class="nav-tab active" data-page="dashboard">
+                        <span class="nav-icon"><i class="fas fa-tachometer-alt"></i></span> <!-- 仪表盘图标 -->
+                        <span class="nav-text">仪表盘</span>
+                    </div>
+                    <div class="nav-tab" data-page="filters">
+                        <span class="nav-icon"><i class="fas fa-filter"></i></span> <!-- 滤波分析图标 -->
+                        <span class="nav-text">滤波分析</span>
+                    </div>
+                    <div class="nav-tab" data-page="calibration">
+                        <span class="nav-icon"><i class="fas fa-cogs"></i></span> <!-- 标定设置图标 -->
+                        <span class="nav-text">标定设置</span>
+                    </div>
+                </div>
             </div>
-            <div class="invokeBox">
-                <button id="openUrl">open_url_browser</button>
-                <button id="openUrlNew">open_url_new</button>
-                <button id="runCommand">run_command</button>
-                <button id="downloadFile">download_file</button>
-                <button id="getExeDir">get_exe_dir</button>
-                <button id="getEnvVar">get_env_var</button>
-                <button id="findPort">find_port</button>
+        </div>
+
+
+
+        <div class="content">
+            <!-- 仪表盘页面 -->
+            <div id="dashboard" class="page active">
+                <div class="data-panel">
+                    <div class="card">
+                        <h3>当前压力读数</h3>
+                        <div class="current-reading" id="pressure-value">--</div>
+                        <div class="unit-label" id="pressure-unit">Pa</div>
+
+                        <div class="control-group">
+                            <label class="control-label">单位</label>
+                            <select id="unit-selector" class="ms-Select">
+                                <option value="Pa">帕斯卡 (Pa)</option>
+                                <option value="kPa">千帕 (kPa)</option>
+                                <option value="MPa">兆帕 (MPa)</option>
+                                <option value="bar">巴 (bar)</option>
+                                <option value="psi">磅力/平方英寸 (psi)</option>
+                                <option value="mmHg">毫米汞柱 (mmHg)</option>
+                                <option value="inHg">英寸汞柱 (inHg)</option>
+                                <option value="atm">标准大气压 (atm)</option>
+                                <option value="kgf/cm2">公斤力/平方厘米 (kgf/cm²)</option>
+                            </select>
+                        </div>
+
+                        <div class="control-group">
+                            <label class="control-label">温度</label>
+                            <div id="temperature-value">-- °C</div>
+                        </div>
+
+                        <div class="control-group">
+                            <button id="clear-button" class="button">清零 (300ms EMA)</button>
+                        </div>
+
+                        <div class="control-group">
+                            <label class="control-label">设备状态</label>
+                            <div>
+                                <span class="status-indicator status-ok" id="status-indicator"></span>
+                                <span id="device-status">--</span>
+                            </div>
+                        </div>
+
+                        <div class="control-group">
+                            <div class="connection-status">
+                                <div class="connection-dot" id="connection-dot"></div>
+                                <span id="connection-status">未连接</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <h3>压力-时间曲线</h3>
+                        <!-- 添加数据源选择器 -->
+                        <div class="control-group" style="margin-bottom: 15px;">
+                            <label class="control-label">数据源</label>
+                            <select id="data-source-selector" class="ms-Select">
+                                <option value="raw">原始数据</option>
+                                <option value="ma">移动平均滤波 (MA)</option>
+                                <option value="ema">指数移动平均滤波 (EMA)</option>
+                                <option value="median">中值滤波</option>
+                            </select>
+                        </div>
+
+                        <div class="chart-container">
+                            <canvas id="pressure-chart"></canvas>
+                        </div>
+                        <div class="calibration-info" id="calibration-info"
+                            style="margin-bottom: 15px; padding: 20px 8px; border-radius: 4px; font-size: 16px;">
+                            <strong>当前拟合函数:</strong> <span id="fitting-function">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h3>数据日志</h3>
+                    <div class="log-container" id="data-log"></div>
+                </div>
             </div>
-        </main>
-    </body>
+
+            <!-- 滤波分析页面 -->
+            <div id="filters" class="page">
+                <div class="card">
+                    <h3>滤波算法对比</h3>
+                    <div class="filter-comparison">
+                        <div>
+                            <h4>原始数据</h4>
+                            <div class="filter-chart">
+                                <canvas id="raw-chart"></canvas>
+                            </div>
+                        </div>
+                        <div>
+                            <h4>移动平均滤波 (MA)</h4>
+                            <div class="filter-chart">
+                                <canvas id="ma-chart"></canvas>
+                            </div>
+                        </div>
+                        <div>
+                            <h4>指数移动平均滤波 (EMA)</h4>
+                            <div class="filter-chart">
+                                <canvas id="ema-chart"></canvas>
+                            </div>
+                        </div>
+                        <div>
+                            <h4>中值滤波</h4>
+                            <div class="filter-chart">
+                                <canvas id="median-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 标定设置页面 -->
+            <div id="calibration" class="page">
+                <div class="card">
+                    <h3>压力标定</h3>
+
+                    <div class="calibration-controls">
+                        <div class="control-group">
+                            <label class="control-label">多项式次数</label>
+                            <select id="poly-degree" class="ms-Select">
+                                <option value="2">二次多项式</option>
+                                <option value="3">三次多项式</option>
+                                <option value="4">四次多项式</option>
+                                <option value="5">五次多项式</option>
+                            </select>
+                        </div>
+
+                        <div class="control-group">
+                            <label class="control-label">标定状态</label>
+                            <div id="calibration-status">已应用</div>
+                        </div>
+                    </div>
+
+                    <div class="control-group">
+                        <button id="apply-calibration" class="button">应用标定</button>
+                    </div>
+                </div>
+
+                <!-- 新增版权信息卡片 -->
+                <div class="card">
+                    <h3>版权信息</h3>
+                    <div class="control-group">
+                        <p>© 2025 BJTU 实习第五组</p>
+                        <p>
+                            <i class="fas fa-external-link-alt"></i>
+                            GitHub:
+                            <a href="https://github.com/GoldenWaL" target="_blank" style="color: var(--primary-color);">
+                                https://github.com/GoldenWaL
+                            </a>
+                        </p>
+                        <p>
+                            <i class="fas fa-envelope"></i>
+                            邮箱:
+                            <a href="mailto:22221314@bjtu.edu.cn" style="color: var(--primary-color);">
+                                22221314@bjtu.edu.cn
+                            </a>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+
+        // 全局变量
+        let currentUnit = 'Pa';
+        let rawData = [];
+        let filteredData = {
+            ma: [],
+            ema: [],
+            median: []
+        };
+        let calibrationApplied = false;
+        let currentPolyDegree = '3';
+        let maxDataPoints = 150; // 图表中显示的最大数据点数
+        let charts = {}; // 存储所有图表实例
+        let ws = null; // WebSocket连接
+        let currentFittingFunction = '--';
+        let currentDataSource = 'raw';
+
+        // 页面切换逻辑
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.page).classList.add('active');
+            });
+        });
+
+        // 单位切换
+        document.getElementById('unit-selector').addEventListener('change', (e) => {
+            currentUnit = e.target.value;
+            updateDisplayedValues();
+        });
+
+        let offset = 0;
+        let lastClearTime = 0;
+
+        document.getElementById('clear-button').addEventListener('click', () => {
+            const now = Date.now();
+
+            // 防止过于频繁清零
+            if (now - lastClearTime < 1000) {
+                addToLog('清零操作过于频繁，已忽略。');
+                return;
+            }
+            lastClearTime = now;
+
+            // 根据当前数据源选择要清零的数据
+            let dataToClear = [];
+            switch (currentDataSource) {
+                case 'raw':
+                    dataToClear = rawData;
+                    break;
+                case 'ma':
+                    dataToClear = filteredData.ma;
+                    break;
+                case 'ema':
+                    dataToClear = filteredData.ema;
+                    break;
+                case 'median':
+                    dataToClear = filteredData.median;
+                    break;
+                default:
+                    dataToClear = rawData;
+            }
+
+            const recentData = dataToClear.filter(point => now - point.time <= 1000);
+
+            if (recentData.length > 0) {
+                let ema = recentData[0].originalPressure;
+                const alpha = 2 / (recentData.length + 1);
+                for (let i = 1; i < recentData.length; i++) {
+                    ema = alpha * recentData[i].originalPressure + (1 - alpha) * ema;
+                }
+
+                offset = ema;
+
+                // 更新所有数据（保持原有的更新逻辑）
+                rawData.forEach(point => {
+                    point.pressure = point.originalPressure - offset;
+                });
+                ['ma', 'ema', 'median'].forEach(k => {
+                    filteredData[k].forEach(point => {
+                        point.pressure_pa = point.originalPressure - offset;
+                    });
+                });
+
+                updateCharts();
+                addToLog(`清零成功，新零点基于${getDataSourceName(currentDataSource)}最近 ${recentData.length} 点的 EMA: ${ema.toFixed(2)} Pa`);
+            } else {
+                addToLog(`清零失败：${getDataSourceName(currentDataSource)}最近 1 秒内没有数据点。`);
+            }
+        });
+
+        // 数据源切换
+        document.getElementById('data-source-selector').addEventListener('change', (e) => {
+            currentDataSource = e.target.value;
+            updatePressureChart();
+            addToLog(`切换数据源为: ${getDataSourceName(currentDataSource)}`);
+        });
+
+        // 获取数据源名称的辅助函数
+        function getDataSourceName(source) {
+            const names = {
+                'raw': '原始数据',
+                'ma': '移动平均滤波',
+                'ema': '指数移动平均滤波',
+                'median': '中值滤波'
+            };
+            return names[source] || '未知数据源';
+        }
+
+        // 切换多项式次数
+        document.getElementById('poly-degree').addEventListener('change', (e) => {
+            currentPolyDegree = e.target.value;
+            addToLog(`切换为${currentPolyDegree === '3' ? '三次' : '二次'}多项式标定`);
+
+            // 发送多项式次数到后端
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                console.log("发送的消息:", { polyDegree: currentPolyDegree });  // 调试打印
+                ws.send(JSON.stringify({ polyDegree: currentPolyDegree }));
+            }
+        });
+
+        // 更新显示值
+        // 更新显示值（支持不同数据源）
+        function updateDisplayedValues() {
+            let latestData = null;
+
+            // 根据选择的数据源获取最新数据
+            switch (currentDataSource) {
+                case 'raw':
+                    latestData = rawData[rawData.length - 1];
+                    break;
+                case 'ma':
+                    latestData = filteredData.ma[filteredData.ma.length - 1];
+                    break;
+                case 'ema':
+                    latestData = filteredData.ema[filteredData.ema.length - 1];
+                    break;
+                case 'median':
+                    latestData = filteredData.median[filteredData.median.length - 1];
+                    break;
+                default:
+                    latestData = rawData[rawData.length - 1];
+            }
+
+            if (!latestData) return;
+
+            let displayValue = latestData.pressure || latestData.pressure_pa;
+
+            // 单位转换（保持你原有的单位转换逻辑）
+            switch (currentUnit) {
+                case 'kPa':
+                    displayValue /= 1000;
+                    break;
+                case 'MPa':
+                    displayValue /= 1000000;
+                    break;
+                case 'bar':
+                    displayValue /= 100000;
+                    break;
+                case 'mbar':
+                    displayValue /= 100;
+                    break;
+                case 'psi':
+                    displayValue /= 6894.76;
+                    break;
+                case 'mmHg':
+                    displayValue /= 133.322;
+                    break;
+                case 'inHg':
+                    displayValue /= 3386.39;
+                    break;
+                case 'atm':
+                    displayValue /= 101325;
+                    break;
+                case 'kgf/cm2':
+                    displayValue /= 98066.5;
+                    break;
+                // Pa 不需要转换
+            }
+
+            document.getElementById('pressure-value').textContent = displayValue.toFixed(2);
+            document.getElementById('pressure-unit').textContent = currentUnit;
+
+            // 更新数据源指示器
+            updateDataSourceIndicator();
+        }
+
+        // 新增：更新数据源指示器
+        function updateDataSourceIndicator() {
+            const indicator = document.getElementById('data-source-indicator');
+            if (indicator) {
+                indicator.textContent = `数据源: ${getDataSourceName(currentDataSource)}`;
+            }
+        }
+
+        // 更新所有图表
+        function updateCharts() {
+            updatePressureChart();
+            updateFilterCharts();
+        }
+
+        // 更新主压力图表
+        // 更新主压力图表（支持不同数据源）
+        function updatePressureChart() {
+            let dataToShow = [];
+
+            // 根据选择的数据源获取数据
+            switch (currentDataSource) {
+                case 'raw':
+                    dataToShow = rawData;
+                    break;
+                case 'ma':
+                    dataToShow = filteredData.ma;
+                    break;
+                case 'ema':
+                    dataToShow = filteredData.ema;
+                    break;
+                case 'median':
+                    dataToShow = filteredData.median;
+                    break;
+                default:
+                    dataToShow = rawData;
+            }
+
+            if (dataToShow.length === 0) return;
+
+            const labels = dataToShow.map(point => {
+                const date = new Date(point.time);
+                return `${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}`;
+            });
+
+            const data = dataToShow.map(point => point.pressure || point.pressure_pa);
+
+            if (!charts.pressure) {
+                // 初始化图表
+                const ctx = document.getElementById('pressure-chart').getContext('2d');
+                charts.pressure = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: `${getDataSourceName(currentDataSource)} (Pa)`,
+                            data: data,
+                            borderColor: '#0078d4',
+                            backgroundColor: 'rgba(0, 120, 212, 0.1)',
+                            tension: 0,
+                            fill: true,
+                            pointRadius: 0
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: {
+                            duration: 0
+                        },
+                        scales: {
+                            x: {
+                                display: true,
+                                title: {
+                                    display: true,
+                                    text: '时间'
+                                }
+                            },
+                            y: {
+                                display: true,
+                                title: {
+                                    display: true,
+                                    text: '压力 (Pa)'
+                                },
+                                beginAtZero: false
+                            }
+                        }
+                    }
+                });
+            } else {
+                // 更新现有图表
+                charts.pressure.data.labels = labels;
+                charts.pressure.data.datasets[0].data = data;
+                charts.pressure.data.datasets[0].label = `${getDataSourceName(currentDataSource)} (Pa)`;
+                charts.pressure.update('none');
+            }
+        }
+
+        // 更新滤波对比图表
+        function updateFilterCharts() {
+            const chartConfigs = [
+                {
+                    id: 'raw-chart',
+                    data: rawData,
+                    title: '原始数据',
+                    showComparison: false // 原始数据图表不需要对比
+                },
+                {
+                    id: 'ma-chart',
+                    data: filteredData.ma,
+                    title: '移动平均',
+                    showComparison: true
+                },
+                {
+                    id: 'ema-chart',
+                    data: filteredData.ema,
+                    title: '指数移动平均',
+                    showComparison: true
+                },
+                {
+                    id: 'median-chart',
+                    data: filteredData.median,
+                    title: '中值滤波',
+                    showComparison: true
+                }
+            ];
+
+            chartConfigs.forEach(config => {
+                if (config.data.length === 0) return;
+
+                const labels = config.data.map(point => {
+                    const date = new Date(point.time);
+                    return `${date.getMinutes()}:${date.getSeconds()}`;
+                });
+
+                const filteredDataValues = config.data.map(point => point.pressure || point.pressure_pa);
+
+                // 获取对应的原始数据（时间对齐）
+                const rawDataValues = getAlignedRawData(config.data);
+
+                if (!charts[config.id]) {
+                    // 初始化图表
+                    const ctx = document.getElementById(config.id).getContext('2d');
+
+                    const datasets = [{
+                        label: '滤波数据',
+                        data: filteredDataValues,
+                        borderColor: '#0078d4',
+                        backgroundColor: 'rgba(0, 120, 212, 0.1)',
+                        tension: 0,
+                        fill: true,
+                        pointRadius: 0
+                    }];
+
+                    // 如果需要显示对比，添加原始数据线
+                    if (config.showComparison) {
+                        datasets.push({
+                            label: '原始数据',
+                            data: rawDataValues,
+                            borderColor: '#d13438',
+                            backgroundColor: 'transparent',
+                            tension: 0,
+                            fill: false,
+                            pointRadius: 0
+                        });
+                    }
+
+                    charts[config.id] = new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: labels,
+                            datasets: datasets
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            animation: {
+                                duration: 0
+                            },
+                            scales: {
+                                x: {
+                                    display: true,
+                                    title: {
+                                        display: true,
+                                        text: '时间'
+                                    }
+                                },
+                                y: {
+                                    display: true,
+                                    title: {
+                                        display: true,
+                                        text: '压力 (Pa)'
+                                    },
+                                    beginAtZero: false
+                                }
+                            },
+                            plugins: {
+                                title: {
+                                    display: true,
+                                    text: config.title
+                                },
+                                legend: {
+                                    display: config.showComparison // 只在有对比的图表中显示图例
+                                }
+                            }
+                        }
+                    });
+                } else {
+                    // 更新现有图表
+                    charts[config.id].data.labels = labels;
+                    charts[config.id].data.datasets[0].data = filteredDataValues;
+
+                    // 更新对比线数据（如果存在）
+                    if (config.showComparison && charts[config.id].data.datasets[1]) {
+                        charts[config.id].data.datasets[1].data = rawDataValues;
+                    }
+
+                    charts[config.id].update('none');
+                }
+            });
+        }
+
+        // 新增函数：获取时间对齐的原始数据
+        function getAlignedRawData(filteredData) {
+            return filteredData.map(filteredPoint => {
+                // 找到与滤波数据时间最接近的原始数据点
+                const closestRawPoint = rawData.find(rawPoint =>
+                    Math.abs(rawPoint.time - filteredPoint.time) < 100 // 100ms内认为是同一时刻
+                );
+                return closestRawPoint ? closestRawPoint.pressure : null;
+            }).filter(val => val !== null); // 过滤掉没有对应原始数据的点
+        }
+
+        // 添加日志
+        function addToLog(message) {
+            const logContainer = document.getElementById('data-log');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        // 初始化 WebSocket
+        function initWebSocket() {
+            const wsPort = 8080;  // 后端端口
+            const wsUrl = `ws://localhost:${wsPort}/pressure_data`;
+
+            try {
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = function () {
+                    document.getElementById('connection-status').textContent = '已连接';
+                    document.getElementById('connection-dot').classList.add('connected');
+                    addToLog('WebSocket连接已建立');
+                };
+
+                ws.onmessage = function (event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        processData(data);
+                    } catch (e) {
+                        console.error('解析数据错误:', e);
+                        addToLog('数据解析错误: ' + e.message);
+                    }
+                };
+
+                ws.onclose = function () {
+                    document.getElementById('connection-status').textContent = '未连接';
+                    document.getElementById('connection-dot').classList.remove('connected');
+                    addToLog('WebSocket连接已断开');
+
+                    // 尝试重新连接
+                    setTimeout(initWebSocket, 3000);
+                };
+
+                ws.onerror = function (error) {
+                    console.error('WebSocket错误:', error);
+                    addToLog('WebSocket连接错误');
+                };
+            } catch (e) {
+                console.error('创建WebSocket失败:', e);
+                addToLog('创建WebSocket失败: ' + e.message);
+                setTimeout(initWebSocket, 3000);
+
+                // 尝试重新连接
+                setTimeout(initWebSocket, 3000);
+            }
+        }
+
+        function processData(data) {
+            // 验证数据结构
+            if (!data.content || typeof data.content.pressure_pa !== 'number' || typeof data.content.temp_c !== 'number') {
+                addToLog('接收到无效数据格式');
+                return;
+            }
+
+            // 处理拟合函数信息
+            if (data.content.type) {
+                currentFittingFunction = data.content.type;
+                updateFittingFunctionDisplay();
+            }
+
+            const now = Date.now();
+            const originalPressure = data.content.pressure_pa; // 原始进来值（未减任何 offset）
+            const adjustedPressure = originalPressure - offset; // 显示/绘图用值（减去当前累积offset）
+
+            // 添加原始与调整后的原始数据条目
+            const rawPoint = {
+                time: now,
+                originalPressure: originalPressure,
+                pressure: adjustedPressure
+            };
+
+            rawData.push(rawPoint);
+            if (rawData.length > maxDataPoints) rawData.shift();
+
+            // 处理滤波数据（若服务器同时发来了 filtered 子结构，且里面是原始值）
+            if (data.content.filtered) {
+                if (data.content.filtered.ma && data.content.filtered.ma.length > 0) {
+                    const maPoint = data.content.filtered.ma[data.content.filtered.ma.length - 1];
+                    filteredData.ma.push({
+                        time: maPoint.time || now,
+                        originalPressure: maPoint.pressure_pa,          // 保存原始
+                        pressure_pa: maPoint.pressure_pa - offset       // 保存调整后
+                    });
+                    if (filteredData.ma.length > maxDataPoints) filteredData.ma.shift();
+                }
+
+                if (data.content.filtered.ema && data.content.filtered.ema.length > 0) {
+                    const emaPoint = data.content.filtered.ema[data.content.filtered.ema.length - 1];
+                    filteredData.ema.push({
+                        time: emaPoint.time || now,
+                        originalPressure: emaPoint.pressure_pa,
+                        pressure_pa: emaPoint.pressure_pa - offset
+                    });
+                    if (filteredData.ema.length > maxDataPoints) filteredData.ema.shift();
+                }
+
+                if (data.content.filtered.median && data.content.filtered.median.length > 0) {
+                    const medianPoint = data.content.filtered.median[data.content.filtered.median.length - 1];
+                    filteredData.median.push({
+                        time: medianPoint.time || now,
+                        originalPressure: medianPoint.pressure_pa,
+                        pressure_pa: medianPoint.pressure_pa - offset
+                    });
+                    if (filteredData.median.length > maxDataPoints) filteredData.median.shift();
+                }
+            }
+
+            // 更新显示（使用 adjusted 值）
+            updateDisplayedValues();
+            document.getElementById('temperature-value').textContent = data.content.temp_c.toFixed(2) + ' °C';
+
+            if (data.content.meta) {
+                const status = data.content.meta.status === 'ok' ? '设备运行正常' : '设备异常';
+                document.getElementById('device-status').textContent = status;
+                document.getElementById('status-indicator').className =
+                    `status-indicator ${data.content.meta.status === 'ok' ? 'status-ok' : 'status-error'}`;
+            }
+
+            updateCharts();
+
+            addToLog(`压力: ${(adjustedPressure).toFixed(2)} Pa, 温度: ${data.content.temp_c.toFixed(2)} °C`);
+        }
+
+        // 新增函数：更新拟合函数显示
+        function updateFittingFunctionDisplay() {
+            const fittingFunctionElement = document.getElementById('fitting-function');
+            if (fittingFunctionElement) {
+                fittingFunctionElement.textContent = currentFittingFunction;
+            }
+        }
+
+        // 在初始化时调用一次
+        function initFittingFunctionDisplay() {
+            updateFittingFunctionDisplay();
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            // 初始化图表
+            updatePressureChart();
+            updateFilterCharts();
+            initFittingFunctionDisplay();
+
+            // 初始化WebSocket连接
+            initWebSocket();
+
+            addToLog('系统初始化完成');
+        });
+
+        // 日夜间模式切换
+        const themeToggle = document.getElementById('theme-toggle');
+        const themeIcon = themeToggle.querySelector('.nav-icon i');
+        const themeText = themeToggle.querySelector('.toggle-text');
+
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            if (savedTheme === 'dark') {
+                document.body.classList.add('dark-mode');
+                themeIcon.className = 'fas fa-sun';
+                themeText.textContent = '日间模式';
+            } else {
+                document.body.classList.remove('dark-mode');
+                themeIcon.className = 'fas fa-moon';
+                themeText.textContent = '夜间模式';
+            }
+        }
+
+        themeToggle.addEventListener('click', () => {
+            if (document.body.classList.contains('dark-mode')) {
+                document.body.classList.remove('dark-mode');
+                localStorage.setItem('theme', 'light');
+                themeIcon.className = 'fas fa-moon';
+                themeText.textContent = '夜间模式';
+            } else {
+                document.body.classList.add('dark-mode');
+                localStorage.setItem('theme', 'dark');
+                themeIcon.className = 'fas fa-sun';
+                themeText.textContent = '日间模式';
+            }
+        });
+
+        // 在DOM加载完成后初始化主题
+        document.addEventListener('DOMContentLoaded', () => {
+            initTheme();
+            // 其他初始化代码...
+        });
+    </script>
+</body>
+
 </html>
